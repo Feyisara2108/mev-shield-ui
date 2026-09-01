@@ -25,6 +25,9 @@
   --color-subtext: #94a3b8;
   --color-muted: #475569;
 
+  --color-ticker: #061510;
+  --color-ticker-border: #0e2a1c;
+
   --font-sans: var(--font-inter);
   --font-mono: var(--font-jetbrains);
 }
