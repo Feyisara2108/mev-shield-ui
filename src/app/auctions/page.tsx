@@ -29,46 +29,20 @@ type RequestInfo = {
 
 type Filter = "ALL" | "Open" | "Closed";
 
-function formatBlocks(blocks: bigint): string {
-  const secs = Number(blocks);
-  const m = Math.floor(secs / 60);
-  const s = secs % 60;
-  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+function fmtBlocksLeft(blocks: bigint): string {
+  const n = Number(blocks);
+  const m = Math.floor(n / 60);
+  const s = n % 60;
+  return m > 0 ? `${m}m ${s}s` : `${s}s`;
 }
 
-function StatusBadge({
-  info,
-  isRequester,
-}: {
-  info: RequestInfo;
-  isRequester: boolean;
-}) {
-  if (info.isCompleted) {
-    return (
-      <span className="rounded-md px-2 py-0.5 text-xs font-semibold bg-(--color-muted)/20 text-(--color-muted)">
-        EXECUTED
-      </span>
-    );
-  }
-  if (isRequester) {
-    return (
-      <span className="rounded-md px-2 py-0.5 text-xs font-semibold bg-(--color-primary)/20 text-(--color-primary)">
-        YOUR AUCTION
-      </span>
-    );
-  }
-  if (info.auctionOpen) {
-    return (
-      <span className="rounded-md px-2 py-0.5 text-xs font-semibold bg-(--color-secondary-dim) text-(--color-secondary)">
-        OPEN
-      </span>
-    );
-  }
-  return (
-    <span className="rounded-md px-2 py-0.5 text-xs font-semibold bg-(--color-amber-dim) text-(--color-amber)">
-      CLOSED
-    </span>
-  );
+// Flat colored status word — no badge
+function StatusWord({ info }: { info: RequestInfo }) {
+  if (info.isCompleted)
+    return <span className="mono-val text-xs" style={{ color: "var(--color-eyebrow)" }}>Executed</span>;
+  if (info.auctionOpen)
+    return <span className="mono-val text-xs" style={{ color: "var(--color-success)" }}>Open</span>;
+  return <span className="mono-val text-xs" style={{ color: "var(--color-amber)" }}>Awaiting Execution</span>;
 }
 
 function AuctionCard({
@@ -93,12 +67,10 @@ function AuctionCard({
     if (isSuccess) queryClient.invalidateQueries();
   }, [isSuccess, queryClient]);
 
-  const absAmount =
-    info.amountSpecified < 0n ? -info.amountSpecified : info.amountSpecified;
+  const absAmount = info.amountSpecified < 0n ? -info.amountSpecified : info.amountSpecified;
   const fromSymbol = info.zeroForOne ? TOKEN0_SYMBOL : TOKEN1_SYMBOL;
   const toSymbol = info.zeroForOne ? TOKEN1_SYMBOL : TOKEN0_SYMBOL;
-  const blocksLeft =
-    info.deadlineBlock > currentBlock ? info.deadlineBlock - currentBlock : 0n;
+  const blocksLeft = info.deadlineBlock > currentBlock ? info.deadlineBlock - currentBlock : 0n;
   const isClosed = !info.auctionOpen && !info.isCompleted;
   const isRequester = address?.toLowerCase() === info.sender.toLowerCase();
   const bidCurrencyIsNative = info.currency0 === zeroAddress;
@@ -155,113 +127,152 @@ function AuctionCard({
   }
 
   return (
-    <div className="rounded-xl border border-(--color-border) bg-(--color-surface) overflow-hidden">
-      {/* Header row */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-(--color-border)">
-        <div className="flex items-center gap-2 text-xs text-(--color-muted) font-mono">
-          <span>{info.sender.slice(0, 8)}…{info.sender.slice(-2)}</span>
-          <svg viewBox="0 0 16 16" fill="none" className="w-3 h-3">
-            <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          <span className="font-semibold text-(--color-text)">
+    <div
+      className="border rounded-sm"
+      style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-surface)" }}
+    >
+      {/* Header */}
+      <div
+        className="flex items-center justify-between px-4 py-2.5 border-b"
+        style={{ borderColor: "var(--color-border)" }}
+      >
+        <div className="flex items-center gap-3">
+          <span className="mono-val text-xs" style={{ color: "var(--color-subtext)" }}>
+            #{requestId.toString().padStart(4, "0")}
+          </span>
+          <span className="text-xs font-medium" style={{ color: "var(--color-text)" }}>
             {fromSymbol} → {toSymbol}
           </span>
+          <span className="mono-val text-[10px]" style={{ color: "var(--color-eyebrow)" }}>
+            {info.sender.slice(0, 8)}…{info.sender.slice(-4)}
+          </span>
         </div>
-        <StatusBadge info={info} isRequester={isRequester} />
+        <div className="flex items-center gap-2">
+          {isRequester && !info.isCompleted && (
+            <span className="text-[10px] uppercase tracking-wider" style={{ color: "var(--color-primary)" }}>
+              yours
+            </span>
+          )}
+          <StatusWord info={info} />
+        </div>
       </div>
 
-      {/* Metrics */}
-      <div className="grid grid-cols-3 divide-x divide-(--color-border)">
+      {/* Data grid */}
+      <div className="grid grid-cols-3 divide-x divide-[var(--color-border)]">
+        {/* Swap Amount */}
         <div className="px-4 py-3">
-          <p className="text-xs text-(--color-muted) mb-1">Swap Amount</p>
-          <p className="text-sm font-semibold text-(--color-text)">
-            {formatEther(absAmount)} {fromSymbol}
+          <p className="eyebrow">Swap Amount</p>
+          <p className="mono-val text-sm font-medium" style={{ color: "var(--color-text)" }}>
+            {formatEther(absAmount)}
+          </p>
+          <p className="mono-val text-[10px]" style={{ color: "var(--color-eyebrow)" }}>
+            {fromSymbol}
           </p>
         </div>
+
+        {/* Highest Bid */}
         <div className="px-4 py-3">
-          <p className="text-xs text-(--color-muted) mb-1">
-            {info.isCompleted ? "Winning Bid" : "Highest Bid"}
-          </p>
+          <p className="eyebrow">{info.isCompleted ? "Winning Bid" : "Highest Bid"}</p>
           <p
-            className={`text-sm font-semibold ${
-              info.highestBid > 0n
-                ? "text-(--color-amber)"
-                : "text-(--color-muted)"
-            }`}
+            className="mono-val text-sm font-medium"
+            style={{
+              color:
+                info.highestBid > 0n ? "var(--color-amber)" : "var(--color-eyebrow)",
+            }}
           >
-            {info.highestBid > 0n
-              ? `${formatEther(info.highestBid)} ETH`
-              : "None"}
+            {info.highestBid > 0n ? formatEther(info.highestBid) : "—"}
           </p>
+          {info.highestBid > 0n && (
+            <p className="mono-val text-[10px]" style={{ color: "var(--color-eyebrow)" }}>
+              {fromSymbol}
+            </p>
+          )}
         </div>
+
+        {/* Time Remaining / Status */}
         <div className="px-4 py-3">
-          <p className="text-xs text-(--color-muted) mb-1">
-            {info.isCompleted ? "Final Status" : "Time Remaining"}
-          </p>
+          <p className="eyebrow">{info.isCompleted ? "Final Status" : "Time Remaining"}</p>
           <p
-            className={`text-sm font-semibold font-mono ${
-              info.isCompleted
-                ? "text-(--color-muted)"
+            className="mono-val text-sm font-medium"
+            style={{
+              color: info.isCompleted
+                ? "var(--color-eyebrow)"
                 : info.auctionOpen
-                ? "text-(--color-error)"
-                : "text-(--color-subtext)"
-            }`}
+                ? "var(--color-success)"
+                : "var(--color-subtext)",
+            }}
           >
             {info.isCompleted
               ? "Settled"
               : info.auctionOpen
-              ? formatBlocks(blocksLeft)
+              ? fmtBlocksLeft(blocksLeft)
               : "Closed"}
           </p>
+          {info.auctionOpen && !info.isCompleted && (
+            <p className="mono-val text-[10px]" style={{ color: "var(--color-eyebrow)" }}>
+              ~{Number(blocksLeft)} blocks
+            </p>
+          )}
         </div>
       </div>
 
-      {/* Executed banner */}
+      {/* LP donation notice (executed with bid) */}
       {info.isCompleted && info.highestBid > 0n && (
-        <div className="px-4 py-2 border-t border-(--color-border) bg-(--color-success)/5 flex items-center gap-1.5 text-xs text-(--color-success)">
-          <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 shrink-0">
-            <path
-              fillRule="evenodd"
-              d="M8 15A7 7 0 108 1a7 7 0 000 14zm3.707-9.293a1 1 0 00-1.414-1.414L7 7.586 5.707 6.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-              clipRule="evenodd"
-            />
-          </svg>
-          Executed — {formatEther(info.highestBid)} ETH donated to LPs
+        <div
+          className="border-t px-4 py-2 text-[11px]"
+          style={{ borderColor: "var(--color-border)", color: "var(--color-subtext)" }}
+        >
+          <span className="eyebrow" style={{ display: "inline", marginBottom: 0 }}>LP Donation: </span>
+          <span className="mono-val">{formatEther(info.highestBid)} {fromSymbol} donated to liquidity providers</span>
         </div>
       )}
 
       {/* Error / success */}
       {error && (
-        <div className="px-4 pb-2">
-          <p className="rounded-lg bg-(--color-error)/10 px-3 py-2 text-xs text-(--color-error)">
-            {error}
-          </p>
+        <div
+          className="border-t px-4 py-2 text-xs mono-val"
+          style={{ borderColor: "var(--color-border)", color: "var(--color-error)" }}
+        >
+          {error}
         </div>
       )}
       {isSuccess && (
-        <div className="px-4 pb-2">
-          <p className="rounded-lg bg-(--color-success)/10 px-3 py-2 text-xs text-(--color-success)">
-            Transaction confirmed!
-          </p>
+        <div
+          className="border-t px-4 py-2 text-xs"
+          style={{ borderColor: "var(--color-border)", color: "var(--color-success)" }}
+        >
+          Transaction confirmed.
         </div>
       )}
 
-      {/* Action area — open auction */}
+      {/* Actions — open auction */}
       {info.auctionOpen && !info.isCompleted && (
-        <div className="px-4 py-3 border-t border-(--color-border) flex items-center gap-2">
+        <div
+          className="border-t px-4 py-3 flex items-center gap-2"
+          style={{ borderColor: "var(--color-border)" }}
+        >
           <input
             type="number"
             min="0"
             step="any"
-            placeholder={`Bid (${TOKEN0_SYMBOL})`}
+            placeholder={`Bid amount (${fromSymbol})`}
             value={bidInput}
             onChange={(e) => setBidInput(e.target.value)}
-            className="flex-1 rounded-lg border border-(--color-border) bg-(--color-bg) px-3 py-2 text-sm text-(--color-text) placeholder:text-(--color-muted) outline-none focus:border-(--color-primary) [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            className="mono-val flex-1 rounded-sm border bg-transparent px-3 py-1.5 text-xs outline-none"
+            style={{
+              borderColor: "var(--color-border)",
+              color: "var(--color-text)",
+            }}
           />
           <button
             onClick={handleBid}
             disabled={!bidInput || isPending || isConfirming}
-            className="shrink-0 rounded-lg bg-(--color-amber) px-4 py-2 text-sm font-medium text-black hover:opacity-90 disabled:opacity-40 transition-opacity"
+            className="shrink-0 rounded-sm border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-30"
+            style={{
+              borderColor: "var(--color-amber)",
+              color: "var(--color-amber)",
+              backgroundColor: "transparent",
+            }}
           >
             {isPending || isConfirming ? "…" : "Place Bid"}
           </button>
@@ -269,7 +280,12 @@ function AuctionCard({
             <button
               onClick={handleCancel}
               disabled={isPending || isConfirming}
-              className="shrink-0 rounded-lg border border-(--color-error)/40 px-3 py-2 text-sm text-(--color-error) hover:bg-(--color-error)/10 disabled:opacity-40 transition-colors"
+              className="shrink-0 rounded-sm border px-3 py-1.5 text-xs transition-colors disabled:opacity-30"
+              style={{
+                borderColor: "var(--color-border)",
+                color: "var(--color-subtext)",
+                backgroundColor: "transparent",
+              }}
             >
               Cancel
             </button>
@@ -277,13 +293,21 @@ function AuctionCard({
         </div>
       )}
 
-      {/* Action area — closed, ready to execute */}
+      {/* Actions — closed, awaiting execution */}
       {isClosed && (
-        <div className="px-4 py-3 border-t border-(--color-border)">
+        <div
+          className="border-t px-4 py-3"
+          style={{ borderColor: "var(--color-border)" }}
+        >
           <button
             onClick={handleExecute}
             disabled={isPending || isConfirming}
-            className="w-full rounded-lg bg-(--color-primary) py-2.5 text-sm font-medium text-white hover:bg-(--color-primary-hover) disabled:opacity-40 transition-colors"
+            className="w-full rounded-sm border py-2 text-xs font-medium transition-colors disabled:opacity-30"
+            style={{
+              borderColor: "var(--color-primary)",
+              color: "var(--color-primary)",
+              backgroundColor: "transparent",
+            }}
           >
             {isPending || isConfirming ? "Confirming…" : "Execute Swap"}
           </button>
@@ -321,105 +345,97 @@ export default function AuctionsPage() {
   const isLoading = nextIdLoading || (nextId > 0n && results.isLoading);
 
   const allAuctions = ids
-    .map((id, i) => ({
-      id,
-      info: results.data?.[i]?.result as RequestInfo | undefined,
-    }))
+    .map((id, i) => ({ id, info: results.data?.[i]?.result as RequestInfo | undefined }))
     .filter((a) => a.info !== undefined)
     .reverse();
 
-  const openAuctions = allAuctions.filter(
-    (a) => a.info?.auctionOpen && !a.info?.isCompleted
-  );
-  const closedAuctions = allAuctions.filter(
-    (a) => a.info?.isCompleted || (!a.info?.auctionOpen && !a.info?.isCompleted)
-  );
+  const openAuctions = allAuctions.filter((a) => a.info?.auctionOpen && !a.info?.isCompleted);
+  const closedAuctions = allAuctions.filter((a) => a.info?.isCompleted || (!a.info?.auctionOpen && !a.info?.isCompleted));
 
   const displayed =
-    filter === "Open"
-      ? openAuctions
-      : filter === "Closed"
-      ? closedAuctions
-      : allAuctions;
+    filter === "Open" ? openAuctions : filter === "Closed" ? closedAuctions : allAuctions;
 
-  const totalBidVolume = openAuctions.reduce(
-    (sum, a) => sum + (a.info?.highestBid ?? 0n),
-    0n
-  );
+  const totalBidVolume = openAuctions.reduce((sum, a) => sum + (a.info?.highestBid ?? 0n), 0n);
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
+
       {/* Header */}
-      <div className="mb-4">
-        <h1 className="text-2xl font-bold text-(--color-text)">Live Auctions</h1>
-        <p className="mt-1 text-sm text-(--color-subtext)">
-          Participate in MEV recapture events.
+      <div className="mb-6">
+        <p className="eyebrow mb-1">Live Auctions</p>
+        <p className="text-xs" style={{ color: "var(--color-subtext)" }}>
+          On-chain MEV recapture events — place bids to execute swaps and earn priority.
         </p>
       </div>
 
-      {/* Stats bar */}
-      <div className="grid grid-cols-3 divide-x divide-(--color-border) rounded-xl border border-(--color-border) bg-(--color-surface) mb-5 overflow-hidden">
+      {/* Stats row */}
+      <div
+        className="grid grid-cols-3 divide-x border rounded-sm mb-5"
+        style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-surface)" }}
+      >
         <div className="px-4 py-3">
-          <p className="text-xs text-(--color-muted) mb-1">Open Auctions</p>
-          <p className="text-2xl font-bold text-(--color-text)">
+          <p className="eyebrow">Open Auctions</p>
+          <p className="mono-val text-xl font-semibold" style={{ color: "var(--color-text)" }}>
             {openAuctions.length}
           </p>
         </div>
         <div className="px-4 py-3">
-          <p className="text-xs text-(--color-muted) mb-1">Total Bid Volume</p>
-          <p className="text-2xl font-bold text-(--color-text)">
-            {parseFloat(formatEther(totalBidVolume)).toFixed(2)} ETH
+          <p className="eyebrow">Total Bid Volume</p>
+          <p className="mono-val text-xl font-semibold" style={{ color: "var(--color-text)" }}>
+            {parseFloat(formatEther(totalBidVolume)).toFixed(4)}
           </p>
+          <p className="mono-val text-[10px]" style={{ color: "var(--color-eyebrow)" }}>{TOKEN0_SYMBOL}</p>
         </div>
         <div className="px-4 py-3">
-          <p className="text-xs text-(--color-muted) mb-1">Avg Recapture Rate</p>
-          <p className="text-2xl font-bold text-(--color-text)">500 bps</p>
+          <p className="eyebrow">Current Block</p>
+          <p className="mono-val text-xl font-semibold" style={{ color: "var(--color-text)" }}>
+            {blockNumber ? blockNumber.toString() : "—"}
+          </p>
         </div>
       </div>
 
       {/* Filter tabs */}
-      <div className="flex items-center gap-1 mb-5">
+      <div className="flex items-center gap-0 mb-5 border-b" style={{ borderColor: "var(--color-border)" }}>
         {(["ALL", "Open", "Closed"] as Filter[]).map((tab) => (
           <button
             key={tab}
             onClick={() => setFilter(tab)}
-            className={`px-4 py-1.5 text-sm rounded-md font-medium transition-colors ${
-              filter === tab
-                ? "bg-(--color-primary)/20 text-(--color-primary)"
-                : "text-(--color-subtext) hover:text-(--color-text)"
-            }`}
+            className="px-4 py-2 text-xs font-medium transition-colors relative"
+            style={{ color: filter === tab ? "var(--color-text)" : "var(--color-subtext)" }}
           >
             {tab}
+            {filter === tab && (
+              <span
+                className="absolute bottom-0 left-0 right-0 h-px"
+                style={{ backgroundColor: "var(--color-primary)" }}
+              />
+            )}
           </button>
         ))}
-        {blockNumber && (
-          <span className="ml-auto text-xs font-mono text-(--color-muted)">
-            block {blockNumber.toString()}
-          </span>
-        )}
       </div>
 
       {/* List */}
       {isLoading ? (
-        <div className="rounded-xl border border-(--color-border) bg-(--color-surface) p-10 text-center">
-          <p className="text-(--color-muted) text-sm">Loading auctions…</p>
+        <div className="py-12 text-center">
+          <p className="text-xs" style={{ color: "var(--color-subtext)" }}>Loading auctions…</p>
         </div>
       ) : displayed.length === 0 ? (
-        <div className="rounded-xl border border-(--color-border) bg-(--color-surface) p-10 text-center">
-          <p className="text-(--color-muted) text-sm">
+        <div className="py-12 text-center">
+          <p className="text-xs" style={{ color: "var(--color-subtext)" }}>
             {nextId === 0n ? "No swap requests yet." : "No auctions in this filter."}
           </p>
           {nextId === 0n && (
             <a
               href="/"
-              className="mt-2 inline-block text-sm text-(--color-primary) hover:underline"
+              className="mt-2 inline-block text-xs underline"
+              style={{ color: "var(--color-primary)" }}
             >
               Request a swap →
             </a>
           )}
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="flex flex-col gap-2">
           {displayed.map(({ id, info }) =>
             info ? (
               <AuctionCard

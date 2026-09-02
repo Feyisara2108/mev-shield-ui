@@ -3,7 +3,7 @@ import { anvil, unichainSepolia } from "wagmi/chains";
 import { injected } from "wagmi/connectors";
 
 export const wagmiConfig = createConfig({
-  chains: [anvil, unichainSepolia],
+  chains: [unichainSepolia, anvil],
   connectors: [injected()],
   transports: {
     [anvil.id]: http(process.env.NEXT_PUBLIC_ANVIL_RPC ?? "http://127.0.0.1:8545"),

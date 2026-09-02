@@ -1,44 +1,43 @@
 @import "tailwindcss";
 
 @theme inline {
-  /* MD3-inspired dark palette */
-  --color-bg: #0a0b14;
-  --color-surface: #12141f;
-  --color-surface-alt: #1a1c2e;
-  --color-border: #1e2035;
-  --color-border-bright: #2e3060;
+  /* ─── Background / surface ─────────────────────────── */
+  --color-bg:          #0b0c0f;   /* near-black, not pure */
+  --color-surface:     #0f1014;   /* card bg */
+  --color-surface-alt: #13151a;   /* input bg / secondary row */
 
-  --color-primary: #6366f1;
+  /* ─── Borders — hairline only ───────────────────────── */
+  --color-border:      #1e2028;   /* default card/input border */
+  --color-border-hi:   #2a2d38;   /* hover / active border */
+
+  /* ─── Primary accent (violet) — used sparingly ─────── */
+  --color-primary:       #6366f1;
   --color-primary-hover: #4f52d1;
-  --color-primary-dim: #6366f133;
 
-  --color-secondary: #06b6d4;
-  --color-secondary-dim: #06b6d433;
+  /* ─── Semantic status colors (text color only) ──────── */
+  --color-success: #22c55e;   /* Open / Express Lane / Winning */
+  --color-amber:   #f59e0b;   /* Full Auction / highest bid */
+  --color-error:   #ef4444;   /* Wrong Network / Cancelled */
+  --color-info:    #06b6d4;   /* secondary accent */
 
-  --color-amber: #f59e0b;
-  --color-amber-dim: #f59e0b22;
+  /* ─── Text hierarchy ────────────────────────────────── */
+  --color-text:    #d1d5db;   /* primary readable text */
+  --color-subtext: #6b7280;   /* secondary / labels */
+  --color-muted:   #374151;   /* ghost / disabled */
+  --color-eyebrow: #4b5563;   /* uppercase eyebrow labels */
 
-  --color-success: #22c55e;
-  --color-error: #ef4444;
+  /* ─── Ticker bar ────────────────────────────────────── */
+  --color-ticker:        #0b0c0f;
+  --color-ticker-border: #1e2028;
 
-  --color-text: #e2e8f0;
-  --color-subtext: #94a3b8;
-  --color-muted: #475569;
-
-  --color-ticker: #061510;
-  --color-ticker-border: #0e2a1c;
-
+  /* ─── Fonts ─────────────────────────────────────────── */
   --font-sans: var(--font-inter);
   --font-mono: var(--font-jetbrains);
 }
 
-:root {
-  color-scheme: dark;
-}
+:root { color-scheme: dark; }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 body {
   background-color: var(--color-bg);
@@ -47,7 +46,29 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 6px; }
+/* ─── Eyebrow label utility ─────────────────────────────
+   Usage: <p class="eyebrow">HIGHEST BID</p>
+   ─────────────────────────────────────────────────────── */
+.eyebrow {
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-eyebrow);
+  line-height: 1;
+  margin-bottom: 0.25rem;
+}
+
+/* ─── Mono data value utility ───────────────────────────
+   Usage: <span class="mono-val">0.12</span>
+   ─────────────────────────────────────────────────────── */
+.mono-val {
+  font-family: var(--font-mono), 'Courier New', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── Scrollbar ─────────────────────────────────────────*/
+::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: var(--color-surface); }
-::-webkit-scrollbar-thumb { background: var(--color-border-bright); border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: var(--color-border-hi); }

@@ -27,68 +27,25 @@ type RequestInfo = {
   auctionOpen: boolean;
 };
 
-function SwapStatusBadge({ info }: { info: RequestInfo }) {
-  if (info.isCompleted) {
-    return (
-      <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-(--color-success)/15 text-(--color-success)">
-        Completed
-      </span>
-    );
-  }
-  if (info.auctionOpen) {
-    return (
-      <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-(--color-amber-dim) text-(--color-amber)">
-        Pending Auction
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-(--color-secondary-dim) text-(--color-secondary)">
-      Awaiting Swap
-    </span>
-  );
+// Flat status word only — no badge
+function SwapStatus({ info }: { info: RequestInfo }) {
+  if (info.isCompleted)
+    return <span className="mono-val text-xs" style={{ color: "var(--color-subtext)" }}>Completed</span>;
+  if (info.auctionOpen)
+    return <span className="mono-val text-xs" style={{ color: "var(--color-amber)" }}>Auction Open</span>;
+  return <span className="mono-val text-xs" style={{ color: "var(--color-info)" }}>Awaiting Execution</span>;
 }
 
-function BidStatusBadge({
-  info,
-  address,
-  hasRefund,
-}: {
-  info: RequestInfo;
-  address: `0x${string}`;
-  hasRefund: boolean;
-}) {
+function BidStatus({ info, address }: { info: RequestInfo; address: `0x${string}` }) {
   const isWinner = info.highestBidder.toLowerCase() === address.toLowerCase();
-  if (hasRefund) {
-    return (
-      <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-(--color-error)/15 text-(--color-error)">
-        Refund
-      </span>
-    );
-  }
-  if (isWinner && info.isCompleted) {
-    return (
-      <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-(--color-muted)/15 text-(--color-muted)">
-        Settled
-      </span>
-    );
-  }
-  if (isWinner) {
-    return (
-      <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-(--color-success)/15 text-(--color-success)">
-        Winning
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-(--color-muted)/15 text-(--color-muted)">
-      Outbid
-    </span>
-  );
+  if (isWinner && info.isCompleted)
+    return <span className="mono-val text-xs" style={{ color: "var(--color-subtext)" }}>Settled</span>;
+  if (isWinner)
+    return <span className="mono-val text-xs" style={{ color: "var(--color-success)" }}>Winning</span>;
+  return <span className="mono-val text-xs" style={{ color: "var(--color-eyebrow)" }}>Outbid</span>;
 }
 
 function WithdrawButton({
-  requestId,
   currencyAddress,
   amount,
 }: {
@@ -105,7 +62,10 @@ function WithdrawButton({
     if (isSuccess) queryClient.invalidateQueries();
   }, [isSuccess, queryClient]);
 
-  if (isSuccess) return <span className="text-xs text-(--color-success)">Withdrawn</span>;
+  if (isSuccess)
+    return <span className="text-xs" style={{ color: "var(--color-success)" }}>Withdrawn</span>;
+
+  const symbol = currencyAddress === zeroAddress ? TOKEN0_SYMBOL : TOKEN1_SYMBOL;
 
   async function handleWithdraw() {
     try {
@@ -119,13 +79,16 @@ function WithdrawButton({
     } catch {}
   }
 
-  const symbol = currencyAddress === zeroAddress ? TOKEN0_SYMBOL : TOKEN1_SYMBOL;
-
   return (
     <button
       onClick={handleWithdraw}
       disabled={isPending}
-      className="rounded-lg bg-(--color-amber) px-3 py-1 text-xs font-semibold text-black hover:opacity-90 disabled:opacity-50 transition-opacity"
+      className="rounded-sm border px-2.5 py-1 text-[10px] font-medium transition-colors disabled:opacity-40"
+      style={{
+        borderColor: "var(--color-amber)",
+        color: "var(--color-amber)",
+        backgroundColor: "transparent",
+      }}
     >
       {isPending ? "…" : `Withdraw ${formatEther(amount)} ${symbol}`}
     </button>
@@ -168,8 +131,8 @@ export default function ActivityPage() {
   if (!isConnected || !address) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-20 text-center">
-        <p className="text-(--color-subtext) text-sm">
-          Connect your wallet to see your activity.
+        <p className="text-xs" style={{ color: "var(--color-subtext)" }}>
+          Connect your wallet to view your activity.
         </p>
       </div>
     );
@@ -181,11 +144,7 @@ export default function ActivityPage() {
   }));
 
   const myRequests = allInfos
-    .filter(
-      (a) =>
-        a.info !== undefined &&
-        a.info.sender.toLowerCase() === address.toLowerCase()
-    )
+    .filter((a) => a.info?.sender.toLowerCase() === address.toLowerCase())
     .reverse();
 
   const myBids = allInfos
@@ -197,97 +156,110 @@ export default function ActivityPage() {
     )
     .reverse();
 
-  const hasRefundForBid = (info: RequestInfo): bigint => {
-    if (
-      info.highestBidder.toLowerCase() !== address.toLowerCase() &&
-      ethRefund &&
-      ethRefund > 0n
-    ) {
-      return ethRefund;
-    }
-    return 0n;
+  // ─── Shared table styles ──────────────────────────────────────────────────
+  const thStyle: React.CSSProperties = {
+    color: "var(--color-eyebrow)",
+    fontWeight: 600,
+    fontSize: "0.6rem",
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    padding: "10px 16px 10px 0",
+    textAlign: "left",
+    borderBottom: "1px solid var(--color-border)",
   };
+  const tdStyle: React.CSSProperties = {
+    padding: "10px 16px 10px 0",
+    borderBottom: "1px solid var(--color-border)",
+    verticalAlign: "middle",
+  };
+  const tdFirstStyle: React.CSSProperties = { ...tdStyle, paddingLeft: "16px" };
+  const thFirstStyle: React.CSSProperties = { ...thStyle, paddingLeft: "16px" };
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-(--color-text)">My Activity</h1>
-        <p className="mt-1 text-sm text-(--color-subtext)">
-          Track your secure swaps and active auction bids.
+        <p className="eyebrow mb-1">My Activity</p>
+        <p className="text-xs" style={{ color: "var(--color-subtext)" }}>
+          Your swap requests and active bids.
         </p>
       </div>
 
       {nextIdLoading ? (
-        <div className="rounded-xl border border-(--color-border) bg-(--color-surface) p-10 text-center">
-          <p className="text-(--color-muted) text-sm">Loading…</p>
-        </div>
+        <p className="text-xs py-8" style={{ color: "var(--color-subtext)" }}>Loading…</p>
       ) : (
         <>
-          {/* My Swap Requests */}
-          <div className="mb-8">
-            <h2 className="text-sm font-semibold text-(--color-text) mb-3">
-              My Swap Requests
-            </h2>
-            <div className="rounded-xl border border-(--color-border) bg-(--color-surface) overflow-hidden">
+          {/* ── My Swap Requests ─────────────────────────────── */}
+          <section className="mb-8">
+            <p className="eyebrow mb-3">My Swap Requests</p>
+            <div
+              className="border rounded-sm overflow-hidden"
+              style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-surface)" }}
+            >
               {myRequests.length === 0 ? (
-                <div className="p-8 text-center">
-                  <p className="text-sm text-(--color-muted)">No swap requests yet.</p>
+                <div className="px-4 py-8 text-center">
+                  <p className="text-xs" style={{ color: "var(--color-subtext)" }}>No swap requests yet.</p>
                   <a
                     href="/"
-                    className="mt-2 inline-block text-sm text-(--color-primary) hover:underline"
+                    className="mt-2 inline-block text-xs underline"
+                    style={{ color: "var(--color-primary)" }}
                   >
                     Request a swap →
                   </a>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-xs">
                     <thead>
-                      <tr className="border-b border-(--color-border)">
-                        <th className="text-left px-4 py-2.5 text-xs font-medium text-(--color-muted)">Swap</th>
-                        <th className="text-left px-0 py-2.5 text-xs font-medium text-(--color-muted)">Amount</th>
-                        <th className="text-left px-0 py-2.5 text-xs font-medium text-(--color-muted)">Status</th>
-                        <th className="text-left px-0 py-2.5 text-xs font-medium text-(--color-muted)">Auction Closes</th>
-                        <th className="text-left px-0 py-2.5 text-xs font-medium text-(--color-muted)">Action</th>
+                      <tr>
+                        <th style={thFirstStyle}>Swap</th>
+                        <th style={thStyle}>Amount</th>
+                        <th style={thStyle}>Status</th>
+                        <th style={thStyle}>Auction Closes</th>
+                        <th style={thStyle}>Action</th>
                       </tr>
                     </thead>
-                    <tbody className="px-4">
+                    <tbody>
                       {myRequests.map(({ id, info }) =>
                         info ? (
-                          <tr key={id.toString()} className="border-b border-(--color-border) last:border-0">
-                            <td className="px-4 py-3">
-                              <div className="flex items-center gap-1.5 text-sm font-medium text-(--color-text)">
-                                <span className="size-5 rounded-full bg-(--color-surface-alt) flex items-center justify-center text-[10px] font-bold text-(--color-primary)">
-                                  {(info.zeroForOne ? TOKEN0_SYMBOL : TOKEN1_SYMBOL).slice(0, 1)}
-                                </span>
-                                <span>{info.zeroForOne ? TOKEN0_SYMBOL : TOKEN1_SYMBOL}</span>
-                                <svg viewBox="0 0 12 12" fill="none" className="w-3 h-3 text-(--color-muted)">
-                                  <path d="M1 6h10M7 2l4 4-4 4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
-                                <span>{info.zeroForOne ? TOKEN1_SYMBOL : TOKEN0_SYMBOL}</span>
-                              </div>
+                          <tr key={id.toString()}>
+                            <td style={tdFirstStyle}>
+                              <span className="mono-val font-medium" style={{ color: "var(--color-text)" }}>
+                                {info.zeroForOne ? TOKEN0_SYMBOL : TOKEN1_SYMBOL}
+                                {" → "}
+                                {info.zeroForOne ? TOKEN1_SYMBOL : TOKEN0_SYMBOL}
+                              </span>
                             </td>
-                            <td className="py-3 pr-4 text-sm text-(--color-text)">
-                              {formatEther(info.amountSpecified < 0n ? -info.amountSpecified : info.amountSpecified)}{" "}
-                              {info.zeroForOne ? TOKEN0_SYMBOL : TOKEN1_SYMBOL}
+                            <td style={tdStyle}>
+                              <span className="mono-val" style={{ color: "var(--color-text)" }}>
+                                {formatEther(
+                                  info.amountSpecified < 0n ? -info.amountSpecified : info.amountSpecified
+                                )}{" "}
+                                {info.zeroForOne ? TOKEN0_SYMBOL : TOKEN1_SYMBOL}
+                              </span>
                             </td>
-                            <td className="py-3 pr-4">
-                              <SwapStatusBadge info={info} />
+                            <td style={tdStyle}>
+                              <SwapStatus info={info} />
                             </td>
-                            <td className="py-3 pr-4 text-xs text-(--color-muted)">
-                              {info.isCompleted
-                                ? "Ended"
-                                : info.auctionOpen
-                                ? `~${Math.max(0, Number(info.deadlineBlock - currentBlock))}s`
-                                : "—"}
+                            <td style={tdStyle}>
+                              <span className="mono-val" style={{ color: "var(--color-subtext)" }}>
+                                {info.isCompleted
+                                  ? "—"
+                                  : info.auctionOpen
+                                  ? `~${Math.max(0, Number(info.deadlineBlock - currentBlock))} blocks`
+                                  : "—"}
+                              </span>
                             </td>
-                            <td className="py-3">
+                            <td style={tdStyle}>
                               {!info.isCompleted ? (
-                                <a href="/auctions" className="text-xs text-(--color-primary) hover:underline">
-                                  {info.auctionOpen ? "Cancel" : "Track"}
+                                <a
+                                  href="/auctions"
+                                  className="text-xs underline"
+                                  style={{ color: "var(--color-primary)" }}
+                                >
+                                  {info.auctionOpen ? "Cancel / Track" : "Execute →"}
                                 </a>
                               ) : (
-                                <span className="text-xs text-(--color-muted)">Done</span>
+                                <span style={{ color: "var(--color-eyebrow)" }}>Done</span>
                               )}
                             </td>
                           </tr>
@@ -298,67 +270,75 @@ export default function ActivityPage() {
                 </div>
               )}
             </div>
-          </div>
+          </section>
 
-          {/* My Bids */}
-          <div>
-            <h2 className="text-sm font-semibold text-(--color-text) mb-3">My Bids</h2>
-            <div className="rounded-xl border border-(--color-border) bg-(--color-surface) overflow-hidden">
+          {/* ── My Bids ─────────────────────────────────────── */}
+          <section>
+            <p className="eyebrow mb-3">My Bids</p>
+            <div
+              className="border rounded-sm overflow-hidden"
+              style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-surface)" }}
+            >
               {myBids.length === 0 ? (
-                <div className="p-8 text-center">
-                  <p className="text-sm text-(--color-muted)">No bids placed yet.</p>
+                <div className="px-4 py-8 text-center">
+                  <p className="text-xs" style={{ color: "var(--color-subtext)" }}>No bids placed yet.</p>
                   <a
                     href="/auctions"
-                    className="mt-2 inline-block text-sm text-(--color-primary) hover:underline"
+                    className="mt-2 inline-block text-xs underline"
+                    style={{ color: "var(--color-primary)" }}
                   >
                     Browse auctions →
                   </a>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-xs">
                     <thead>
-                      <tr className="border-b border-(--color-border)">
-                        <th className="text-left px-4 py-2.5 text-xs font-medium text-(--color-muted)">Auction #</th>
-                        <th className="text-left px-0 py-2.5 text-xs font-medium text-(--color-muted)">My Bid</th>
-                        <th className="text-left px-0 py-2.5 text-xs font-medium text-(--color-muted)">Status</th>
-                        <th className="text-left px-0 py-2.5 text-xs font-medium text-(--color-muted)">Refund Available</th>
-                        <th className="text-left px-0 py-2.5 text-xs font-medium text-(--color-muted)">Action</th>
+                      <tr>
+                        <th style={thFirstStyle}>Auction</th>
+                        <th style={thStyle}>My Bid</th>
+                        <th style={thStyle}>Status</th>
+                        <th style={thStyle}>Refund Available</th>
+                        <th style={thStyle}>Action</th>
                       </tr>
                     </thead>
                     <tbody>
                       {myBids.map(({ id, info }) => {
                         if (!info) return null;
-                        const refund =
-                          info.highestBidder.toLowerCase() !== address.toLowerCase() &&
-                          ethRefund
-                            ? ethRefund
-                            : 0n;
+                        const isNotWinner =
+                          info.highestBidder.toLowerCase() !== address.toLowerCase();
+                        const refund = isNotWinner && ethRefund ? ethRefund : 0n;
                         const hasRefund = refund > 0n;
                         const isWinner =
                           info.highestBidder.toLowerCase() === address.toLowerCase();
 
                         return (
-                          <tr key={id.toString()} className="border-b border-(--color-border) last:border-0">
-                            <td className="px-4 py-3 text-sm font-mono text-(--color-subtext)">
-                              #A-{id.toString().padStart(4, "0")}
+                          <tr key={id.toString()}>
+                            <td style={tdFirstStyle}>
+                              <span className="mono-val font-medium" style={{ color: "var(--color-subtext)" }}>
+                                #A-{id.toString().padStart(4, "0")}
+                              </span>
                             </td>
-                            <td className="py-3 pr-4 text-sm text-(--color-text)">
-                              {info.highestBid > 0n ? `${formatEther(info.highestBid)} ETH` : "—"}
+                            <td style={tdStyle}>
+                              <span className="mono-val" style={{ color: "var(--color-text)" }}>
+                                {info.highestBid > 0n
+                                  ? `${formatEther(info.highestBid)} ${TOKEN0_SYMBOL}`
+                                  : "—"}
+                              </span>
                             </td>
-                            <td className="py-3 pr-4">
-                              <BidStatusBadge info={info} address={address} hasRefund={hasRefund} />
+                            <td style={tdStyle}>
+                              <BidStatus info={info} address={address} />
                             </td>
-                            <td className="py-3 pr-4 text-sm">
+                            <td style={tdStyle}>
                               {hasRefund ? (
-                                <span className="text-(--color-amber)">
-                                  {formatEther(refund)} ETH
+                                <span className="mono-val" style={{ color: "var(--color-amber)" }}>
+                                  {formatEther(refund)} {TOKEN0_SYMBOL}
                                 </span>
                               ) : (
-                                <span className="text-(--color-muted)">—</span>
+                                <span style={{ color: "var(--color-eyebrow)" }}>—</span>
                               )}
                             </td>
-                            <td className="py-3">
+                            <td style={tdStyle}>
                               {hasRefund ? (
                                 <WithdrawButton
                                   requestId={id}
@@ -366,7 +346,11 @@ export default function ActivityPage() {
                                   amount={refund}
                                 />
                               ) : isWinner && !info.isCompleted ? (
-                                <a href="/auctions" className="text-xs text-(--color-primary) hover:underline">
+                                <a
+                                  href="/auctions"
+                                  className="text-xs underline"
+                                  style={{ color: "var(--color-primary)" }}
+                                >
                                   Increase Bid
                                 </a>
                               ) : null}
@@ -379,7 +363,7 @@ export default function ActivityPage() {
                 </div>
               )}
             </div>
-          </div>
+          </section>
         </>
       )}
     </div>
